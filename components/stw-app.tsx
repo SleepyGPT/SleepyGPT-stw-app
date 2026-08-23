@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import WeekGrid from "@/components/week-grid"
 
 type Ev = {
   id: string; slug: string; title: string; description: string | null
@@ -38,6 +39,8 @@ export default function App({ events, cats, flags, glossary, copy }: {
   const [day, setDay] = useState(0)
   const [stars, setStars] = useState<Set<string>>(new Set())
   const [open, setOpen] = useState<Ev | null>(null)
+  const [q, setQ] = useState("")
+  const [view, setView] = useState<"list" | "grid">("list")
 
   useEffect(() => {
     try { setStars(new Set(JSON.parse(localStorage.getItem("stw-stars") ?? "[]"))) } catch {}
@@ -99,7 +102,14 @@ export default function App({ events, cats, flags, glossary, copy }: {
     </header>
   )
 
+  const ql = q.trim().toLowerCase()
+  const matches = ql
+    ? sorted(events.filter(e =>
+        [e.title, e.host_org, e.venue_name, catBy[e.category]?.name, e.description]
+          .some(v => v?.toLowerCase().includes(ql))))
+    : []
   const weekList = sorted(events.filter(e => e.day === DAYS[day].d))
+  const weekAll = events
   const mine = sorted(events.filter(e => stars.has(e.id)))
   const starters = sorted(events.filter(e => e.newcomer)).slice(0, 6)
 
@@ -108,7 +118,7 @@ export default function App({ events, cats, flags, glossary, copy }: {
 
       {/* nav: bottom tabs on mobile, sidebar on desktop */}
       <nav aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-[rgba(11,11,20,.88)] px-2 pb-[calc(6px+env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl md:sticky md:top-0 md:z-auto md:h-dvh md:flex-col md:gap-1 md:border-r md:border-t-0 md:bg-void md:px-3.5 md:py-7 md:backdrop-blur-none">
+        className="dock z-30 flex px-2 py-1.5 md:sticky md:top-0 md:z-auto md:h-dvh md:flex-col md:gap-1 md:border-r md:border-line md:bg-void md:px-3.5 md:py-7">
         <div className="hidden md:block md:px-3 md:pb-6">
           <span className="block font-headline text-[22px] font-bold tracking-tight">STW_</span>
           <span className="font-pixel text-[10px] uppercase tracking-wide text-ink-faint">Oct 19-24 · 2026</span>
@@ -125,10 +135,33 @@ export default function App({ events, cats, flags, glossary, copy }: {
         ))}
       </nav>
 
-      <main className="min-h-dvh px-4 pb-[calc(84px+env(safe-area-inset-bottom))] md:px-9 md:pb-16">
+      <main className="min-h-dvh px-4 pb-[calc(104px+env(safe-area-inset-bottom))] md:px-9 md:pb-16">
 
         {tab === "week" && <>
           {mast("Oct 19-24 · Sacramento", "The week_")}
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <input value={q} onChange={e => setQ(e.target.value)} type="search"
+              placeholder="Search events, hosts, venues"
+              className="w-full max-w-xs rounded-md border border-line bg-void-2 px-3.5 py-2.5 text-sm outline-none placeholder:text-ink-faint focus:border-ember" />
+            <div className="ml-auto flex rounded-md border border-line p-0.5">
+              {(["list", "grid"] as const).map(v => (
+                <button key={v} onClick={() => setView(v)}
+                  className={`rounded-[5px] px-3 py-1.5 font-pixel text-[11px] uppercase tracking-wide transition-colors ${view === v && !ql ? "bg-void-3 text-lavender" : "text-ink-faint"}`}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {ql ? <>
+            <p className="mt-4 font-pixel text-[11px] uppercase tracking-wide text-ink-faint">
+              {matches.length} match{matches.length === 1 ? "" : "es"} for &quot;{q.trim()}&quot;
+            </p>
+            {DAYS.map(d => group(`${d.w} ${d.n}`, matches.filter(e => e.day === d.d)))}
+            {!matches.length && empty("Nothing matches. Try a host, a venue, or a category.")}
+          </> : view === "grid" ? (
+            <WeekGrid events={weekAll} cats={cats} onOpen={e => setOpen(e)} />
+          ) : <>
           <div className="sticky top-0 z-20 -mx-4 flex gap-2 overflow-x-auto bg-gradient-to-b from-void from-80% px-4 py-2.5 md:-mx-9 md:px-9 [scrollbar-width:none]">
             {DAYS.map((d, i) => {
               const n = events.filter(e => e.day === d.d).length
@@ -144,6 +177,7 @@ export default function App({ events, cats, flags, glossary, copy }: {
           </div>
           {SLOTS.map(s => group(s, weekList.filter(e => e.slot === s)))}
           {!weekList.length && empty("Nothing on this day yet.")}
+          </>}
         </>}
 
         {tab === "mine" && <>
@@ -243,7 +277,7 @@ function A2HS() {
   if (!show) return null
 
   return (
-    <div className="fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom))] z-30 mx-auto max-w-md rounded-md border border-line-strong bg-void-3 p-3.5 shadow-[0_0_24px_rgba(111,29,255,.45)]">
+    <div className="fixed inset-x-3 bottom-[calc(92px+env(safe-area-inset-bottom))] z-30 mx-auto max-w-md rounded-md border border-line-strong bg-void-3 p-3.5 shadow-[0_0_24px_rgba(111,29,255,.45)]">
       <div className="flex items-start gap-3">
         <span className="font-pixel text-base text-lavender">[+]</span>
         <p className="flex-1 text-xs leading-relaxed text-ink-muted">

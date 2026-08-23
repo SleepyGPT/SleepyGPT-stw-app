@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { supabaseBrowser } from "@/lib/supabase/client"
+import WeekGrid from "@/components/week-grid"
 import type { Session } from "@supabase/supabase-js"
 
 type Ev = {
@@ -12,6 +13,16 @@ type Ev = {
 type Cat = { key: string; name: string; color: string }
 
 const supabase = supabaseBrowser()
+const DAYS = [
+  { d: "2026-10-19", w: "Mon", n: 19 }, { d: "2026-10-20", w: "Tue", n: 20 },
+  { d: "2026-10-21", w: "Wed", n: 21 }, { d: "2026-10-22", w: "Thu", n: 22 },
+  { d: "2026-10-23", w: "Fri", n: 23 }, { d: "2026-10-24", w: "Sat", n: 24 },
+]
+const mins = (t: string | null) => {
+  const m = t?.match(/(\d+):(\d+)\s*(AM|PM)/i)
+  if (!m) return 0
+  return ((+m[1] % 12) + (m[3].toUpperCase() === "PM" ? 12 : 0)) * 60 + +m[2]
+}
 
 export default function Admin() {
   const [session, setSession] = useState<Session | null>(null)
@@ -24,8 +35,9 @@ export default function Admin() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [edit, setEdit] = useState<Ev | null>(null)
   const [err, setErr] = useState("")
-  const [seg, setSeg] = useState<"all" | "queue" | "published" | "nolink">("all")
   const [notice, setNotice] = useState("")
+  const [seg, setSeg] = useState<"all" | "queue" | "nolink" | "grid">("all")
+  const [q, setQ] = useState("")
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true) })
@@ -75,10 +87,16 @@ export default function Admin() {
   }
 
   const catBy = Object.fromEntries(cats.map(c => [c.key, c]))
+  const live = events.filter(e => e.status !== "declined")
   const queue = events.filter(e => e.status === "in_review")
-  let rest = events.filter(e => e.status !== "in_review" && e.status !== "declined")
-  if (seg === "published") rest = rest.filter(e => e.status === "published")
-  if (seg === "nolink") rest = rest.filter(e => !e.luma_url)
+  const published = live.filter(e => e.status === "published")
+  const nolink = live.filter(e => !e.luma_url)
+  const totalClicks = Object.values(clicks).reduce((a, b) => a + b, 0)
+
+  const ql = q.trim().toLowerCase()
+  let list = seg === "queue" ? queue : seg === "nolink" ? nolink : live
+  if (ql) list = list.filter(e =>
+    [e.title, e.host_org, e.host_email, catBy[e.category]?.name].some(v => v?.toLowerCase().includes(ql)))
 
   if (!ready) return null
 
@@ -103,20 +121,45 @@ export default function Admin() {
     </main>
   )
 
+  const stat = (label: string, value: number | string, tone?: string) => (
+    <div className="rounded-md border border-line bg-void-2 px-3.5 py-3">
+      <span className={`block font-headline text-2xl font-bold leading-tight tracking-tight ${tone ?? ""}`}>{value}</span>
+      <span className="font-pixel text-[10px] uppercase tracking-wide text-ink-faint">{label}</span>
+    </div>
+  )
+
+  const row = (e: Ev) => (
+    <button key={e.id} onClick={() => { setErr(""); setEdit(e) }}
+      className="relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-line px-4 py-3.5 pl-5 text-left transition-colors last:border-b-0 hover:bg-void-3">
+      <span className="absolute bottom-3 left-0 top-3 w-[3px] rounded-sm" style={{ background: catBy[e.category]?.color }} />
+      <span className="truncate font-headline text-[15px] font-semibold tracking-tight">{e.title}</span>
+      <span className="row-span-2 flex flex-col items-end gap-1.5">
+        <span className={`rounded-sm border px-2 py-0.5 font-pixel text-[10px] uppercase ${
+          e.status === "published" ? "border-ok/40 text-ok"
+          : e.status === "in_review" ? "border-warn/50 text-warn"
+          : "border-line text-ink-faint"}`}>{e.status.replace("_", " ")}</span>
+        {!e.luma_url && <span className="rounded-sm border border-bad/40 px-2 py-0.5 font-pixel text-[10px] uppercase text-bad">No link</span>}
+      </span>
+      <span className="truncate text-[12.5px] text-ink-muted">
+        {e.start_time ?? "time TBD"} · <span style={{ color: catBy[e.category]?.color }}>{catBy[e.category]?.name}</span> · {e.host_org ?? "no host"} · <b className="text-ink">{clicks[e.id] ?? 0}</b> clicks
+      </span>
+    </button>
+  )
+
   return (
-    <main className="mx-auto min-h-dvh max-w-4xl px-5 pb-20 sm:px-8">
+    <main className="mx-auto min-h-dvh max-w-5xl px-5 pb-24 sm:px-8">
       <header className="flex flex-wrap items-end justify-between gap-3 pt-8">
         <div>
           <p className="font-pixel text-xs uppercase tracking-[0.12em] text-ember">Admin console</p>
-          <h1 className="mt-1 font-headline text-3xl font-bold tracking-tight">Events_</h1>
+          <h1 className="mt-1 font-headline text-[34px] font-bold tracking-tight">Events_</h1>
         </div>
-        <button onClick={() => supabase.auth.signOut()} className="rounded-md border border-line px-3 py-1.5 text-xs text-ink-muted">
+        <button onClick={() => supabase.auth.signOut()} className="rounded-md border border-line px-3 py-1.5 text-xs text-ink-muted hover:text-ink">
           Sign out · {session.user.email}
         </button>
       </header>
 
       {isAdmin === false && (
-        <p className="mt-5 rounded-md border border-warn/50 bg-warn/10 p-3.5 text-sm">
+        <p className="mt-5 rounded-md border border-warn/50 bg-warn/10 p-3.5 text-sm leading-relaxed">
           Signed in, but <b>{session.user.email}</b> is not on the admin list, so you are seeing the public view only.
           Add this email to the <code className="font-pixel text-xs">admins</code> table in Supabase.
         </p>
@@ -124,73 +167,55 @@ export default function Admin() {
       {notice && <p className="mt-4 rounded-md border border-ok/40 bg-ok/10 p-3 text-sm">{notice}</p>}
       {err && !edit && <p className="mt-4 rounded-md border border-bad/40 bg-bad/10 p-3 text-sm">{err}</p>}
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {([["all", `All ${events.filter(e => e.status !== "declined").length}`],
-           ["queue", `Queue ${queue.length}`],
-           ["published", `Published ${events.filter(e => e.status === "published").length}`],
-           ["nolink", `Missing link ${events.filter(e => e.status !== "declined" && !e.luma_url).length}`]] as const).map(([k, label]) => (
+      <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+        {stat("Events", live.length)}
+        {stat("Published", published.length, "text-ok")}
+        {stat("In queue", queue.length, queue.length ? "text-warn" : "")}
+        {stat("Missing link", nolink.length, nolink.length ? "text-bad" : "text-ok")}
+        {stat("Luma clicks", totalClicks, "text-lavender")}
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        {([["all", "All"], ["queue", `Queue ${queue.length}`], ["nolink", `Missing link ${nolink.length}`], ["grid", "Week grid"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => setSeg(k)}
-            className={`rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors active:scale-95 ${seg === k ? "border-electric text-ink shadow-[0_0_12px_rgba(111,29,255,.3)]" : "border-line text-ink-muted"}`}>
+            className={`rounded-full border px-4 py-2 text-[13px] transition-colors active:scale-95 ${seg === k ? "border-electric text-ink shadow-[0_0_12px_rgba(111,29,255,.3)]" : "border-line text-ink-muted hover:text-ink"}`}>
             {label}
           </button>
         ))}
+        <input value={q} onChange={e => setQ(e.target.value)} type="search" placeholder="Search"
+          className="ml-auto w-40 rounded-md border border-line bg-void-2 px-3.5 py-2 text-sm outline-none placeholder:text-ink-faint focus:border-ember sm:w-56" />
       </div>
 
-      {(seg === "all" || seg === "queue") && queue.length > 0 && (
-        <section className="mt-6">
-          <div className="mb-2.5 flex items-center gap-2.5 font-pixel text-xs uppercase tracking-[0.12em] text-warn">
-            Queue · {queue.length} waiting<span className="h-px flex-1 bg-line" />
-          </div>
-          <div className="grid gap-2.5">
-            {queue.map(e => (
-              <div key={e.id} className="rounded-md border border-line bg-void-2 p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="font-headline font-semibold">{e.title}</h3>
-                  <span className="font-pixel text-[10px] uppercase text-ink-faint">{e.day} · {e.start_time}</span>
-                </div>
-                <p className="mt-0.5 text-xs text-ink-muted">{e.host_org} · {e.host_email ?? "no email"} · {e.luma_url ? "has Luma link" : <span className="text-bad">no Luma link</span>}</p>
-                <div className="mt-3 flex gap-2">
-                  <button onClick={() => { setErr(""); setEdit(e) }} className="rounded-md bg-electric px-3.5 py-2 text-sm font-semibold text-white active:scale-95">Review</button>
-                  <button onClick={async () => {
-                    const { error } = await supabase.from("events").update({ status: "declined" }).eq("id", e.id)
-                    error ? setErr(error.message) : load()
-                  }} className="rounded-md border border-bad/40 px-3.5 py-2 text-sm text-bad active:scale-95">Decline</button>
-                </div>
+      {seg === "grid" ? (
+        <WeekGrid events={live} cats={cats} showStatus onOpen={e => { setErr(""); setEdit(e as Ev) }} />
+      ) : (
+        DAYS.map(d => {
+          const es = list.filter(e => e.day === d.d).sort((a, b) => mins(a.start_time) - mins(b.start_time))
+          if (!es.length) return null
+          return (
+            <section key={d.d} className="mt-6">
+              <div className="mb-2 flex items-center gap-2.5 font-pixel text-xs uppercase tracking-[0.12em] text-ink-faint">
+                {d.w} Oct {d.n} · {es.length}<span className="h-px flex-1 bg-line" />
               </div>
-            ))}
-          </div>
-        </section>
+              <div className="overflow-hidden rounded-md border border-line bg-void-2">{es.map(row)}</div>
+            </section>
+          )
+        })
       )}
-
-      {seg !== "queue" && <section className="mt-6">
-        <div className="mb-2.5 flex items-center gap-2.5 font-pixel text-xs uppercase tracking-[0.12em] text-ink-faint">
-          All events · {rest.length}<span className="h-px flex-1 bg-line" />
+      {seg !== "grid" && !list.length && (
+        <div className="mt-8 rounded-md border border-dashed border-line p-8 text-center text-sm text-ink-faint">
+          <span className="mb-1 block font-pixel text-[13px] text-lavender">CLEAR_</span>
+          Nothing here. {seg === "queue" ? "The queue is empty." : "Try another filter."}
         </div>
-        <div className="overflow-hidden rounded-md border border-line bg-void-2">
-          {rest.sort((a, b) => a.day.localeCompare(b.day)).map(e => (
-            <button key={e.id} onClick={() => { setErr(""); setEdit(e) }}
-              className="relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-line p-3 pl-4 text-left last:border-b-0 hover:bg-void-3">
-              <span className="absolute bottom-2 left-0 top-2 w-[3px] rounded-sm" style={{ background: catBy[e.category]?.color }} />
-              <span className="truncate font-headline text-sm font-semibold">{e.title}</span>
-              <span className="row-span-2 flex flex-col items-end gap-1">
-                <span className={`rounded-sm border px-1.5 py-0.5 font-pixel text-[9.5px] uppercase ${e.status === "published" ? "border-ok/40 text-ok" : "border-line text-ink-faint"}`}>{e.status}</span>
-                {!e.luma_url && <span className="rounded-sm border border-bad/40 px-1.5 py-0.5 font-pixel text-[9.5px] uppercase text-bad">No link</span>}
-              </span>
-              <span className="truncate text-[11.5px] text-ink-faint">{e.day.slice(5)} · {e.start_time} · {catBy[e.category]?.name} · {clicks[e.id] ?? 0} clicks</span>
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-right font-pixel text-[10.5px] uppercase text-ink-faint">
-          {Object.values(clicks).reduce((a, b) => a + b, 0)} outbound clicks to registration
-        </p>
-      </section>}
+      )}
 
       {edit && (
         <>
           <div className="fixed inset-0 z-40 bg-[rgba(5,5,12,.6)] backdrop-blur-sm" onClick={() => setEdit(null)} />
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-xl border border-b-0 border-line bg-void-2 p-5 pb-8 sm:bottom-auto sm:top-1/2 sm:max-w-lg sm:-translate-y-1/2 sm:rounded-xl sm:border-b"
             role="dialog" aria-modal="true">
-            <h2 className="font-headline text-xl font-bold tracking-tight">Edit event</h2>
+            <h2 className="font-headline text-xl font-bold tracking-tight">{edit.title}</h2>
+            <p className="mt-0.5 text-xs text-ink-faint">{edit.host_org} · {edit.host_email ?? "no email"} · {clicks[edit.id] ?? 0} clicks</p>
             <form className="mt-4 grid gap-3" onSubmit={ev => {
               ev.preventDefault()
               const f = new FormData(ev.currentTarget)
