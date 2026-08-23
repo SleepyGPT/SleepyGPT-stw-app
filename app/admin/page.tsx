@@ -29,6 +29,8 @@ export default function Admin() {
   const [ready, setReady] = useState(false)
   const [email, setEmail] = useState("")
   const [sent, setSent] = useState(false)
+  const [mode, setMode] = useState<"magic" | "password">("magic")
+  const [pw, setPw] = useState("")
   const [events, setEvents] = useState<Ev[]>([])
   const [cats, setCats] = useState<Cat[]>([])
   const [clicks, setClicks] = useState<Record<string, number>>({})
@@ -64,10 +66,17 @@ export default function Admin() {
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setErr("")
+    if (mode === "password") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: pw })
+      if (error) setErr(error.message)
+      return
+    }
     const { error } = await supabase.auth.signInWithOtp({
       email, options: { emailRedirectTo: `${location.origin}/admin` },
     })
-    error ? setErr(error.message) : setSent(true)
+    error ? setErr(error.message.includes("rate limit")
+      ? "Email rate limit hit. Use the password option, or wait an hour."
+      : error.message) : setSent(true)
   }
 
   const save = async (patch: Partial<Ev>) => {
@@ -108,11 +117,24 @@ export default function Admin() {
         <p className="mt-4 text-sm text-ink-muted">Magic link sent to <b className="text-ink">{email}</b>. Open it on this device.</p>
       ) : (
         <form onSubmit={signIn} className="mt-5 grid gap-2.5">
+          <div className="flex rounded-md border border-line p-0.5">
+            {(["magic", "password"] as const).map(m => (
+              <button key={m} type="button" onClick={() => { setMode(m); setErr("") }}
+                className={`flex-1 rounded-[5px] px-3 py-1.5 font-pixel text-[11px] uppercase tracking-wide ${mode === m ? "bg-void-3 text-lavender" : "text-ink-faint"}`}>
+                {m === "magic" ? "Magic link" : "Password"}
+              </button>
+            ))}
+          </div>
           <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
             placeholder="you@sactechweek.org" autoComplete="email"
             className="rounded-md border border-line bg-void-2 px-3.5 py-3 text-sm outline-none focus:border-ember" />
+          {mode === "password" && (
+            <input type="password" required value={pw} onChange={e => setPw(e.target.value)}
+              placeholder="Password" autoComplete="current-password"
+              className="rounded-md border border-line bg-void-2 px-3.5 py-3 text-sm outline-none focus:border-ember" />
+          )}
           <button className="rounded-md bg-electric p-3 font-headline font-semibold text-white shadow-[0_0_24px_rgba(111,29,255,.45)] active:scale-[.975]">
-            Send magic link
+            {mode === "magic" ? "Send magic link" : "Sign in"}
           </button>
           {err && <p className="text-sm text-bad">{err}</p>}
           <p className="text-xs text-ink-faint">Organizers only. Your email has to be on the admin list.</p>
