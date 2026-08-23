@@ -24,6 +24,7 @@ export default function Admin() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [edit, setEdit] = useState<Ev | null>(null)
   const [err, setErr] = useState("")
+  const [seg, setSeg] = useState<"all" | "queue" | "published" | "nolink">("all")
   const [notice, setNotice] = useState("")
 
   useEffect(() => {
@@ -75,7 +76,9 @@ export default function Admin() {
 
   const catBy = Object.fromEntries(cats.map(c => [c.key, c]))
   const queue = events.filter(e => e.status === "in_review")
-  const rest = events.filter(e => e.status !== "in_review" && e.status !== "declined")
+  let rest = events.filter(e => e.status !== "in_review" && e.status !== "declined")
+  if (seg === "published") rest = rest.filter(e => e.status === "published")
+  if (seg === "nolink") rest = rest.filter(e => !e.luma_url)
 
   if (!ready) return null
 
@@ -101,7 +104,7 @@ export default function Admin() {
   )
 
   return (
-    <main className="mx-auto min-h-dvh max-w-3xl px-5 pb-20 sm:px-8">
+    <main className="mx-auto min-h-dvh max-w-4xl px-5 pb-20 sm:px-8">
       <header className="flex flex-wrap items-end justify-between gap-3 pt-8">
         <div>
           <p className="font-pixel text-xs uppercase tracking-[0.12em] text-ember">Admin console</p>
@@ -121,7 +124,19 @@ export default function Admin() {
       {notice && <p className="mt-4 rounded-md border border-ok/40 bg-ok/10 p-3 text-sm">{notice}</p>}
       {err && !edit && <p className="mt-4 rounded-md border border-bad/40 bg-bad/10 p-3 text-sm">{err}</p>}
 
-      {queue.length > 0 && (
+      <div className="mt-5 flex flex-wrap gap-2">
+        {([["all", `All ${events.filter(e => e.status !== "declined").length}`],
+           ["queue", `Queue ${queue.length}`],
+           ["published", `Published ${events.filter(e => e.status === "published").length}`],
+           ["nolink", `Missing link ${events.filter(e => e.status !== "declined" && !e.luma_url).length}`]] as const).map(([k, label]) => (
+          <button key={k} onClick={() => setSeg(k)}
+            className={`rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors active:scale-95 ${seg === k ? "border-electric text-ink shadow-[0_0_12px_rgba(111,29,255,.3)]" : "border-line text-ink-muted"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {(seg === "all" || seg === "queue") && queue.length > 0 && (
         <section className="mt-6">
           <div className="mb-2.5 flex items-center gap-2.5 font-pixel text-xs uppercase tracking-[0.12em] text-warn">
             Queue · {queue.length} waiting<span className="h-px flex-1 bg-line" />
@@ -147,7 +162,7 @@ export default function Admin() {
         </section>
       )}
 
-      <section className="mt-6">
+      {seg !== "queue" && <section className="mt-6">
         <div className="mb-2.5 flex items-center gap-2.5 font-pixel text-xs uppercase tracking-[0.12em] text-ink-faint">
           All events · {rest.length}<span className="h-px flex-1 bg-line" />
         </div>
@@ -168,7 +183,7 @@ export default function Admin() {
         <p className="mt-2 text-right font-pixel text-[10.5px] uppercase text-ink-faint">
           {Object.values(clicks).reduce((a, b) => a + b, 0)} outbound clicks to registration
         </p>
-      </section>
+      </section>}
 
       {edit && (
         <>

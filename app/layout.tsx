@@ -21,6 +21,7 @@ export const metadata: Metadata = {
   title: "Sac Tech Week",
   description:
     "Every Sac Tech Week 2026 event in one place. Oct 19-24, Sacramento.",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "STW" },
 }
 
 export const viewport: Viewport = {
