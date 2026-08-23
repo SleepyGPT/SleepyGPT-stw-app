@@ -52,13 +52,27 @@ export default function App({ events, cats, flags, glossary, copy }: {
     return next
   })
 
+  /* Sheet navigation that survives standalone mode: opening pushes a
+     history entry, so the back button / back gesture closes the sheet
+     instead of exiting the installed app. */
+  const openSheet = (e: Ev) => { setOpen(e); history.pushState({ sheet: 1 }, "") }
+  const closeSheet = () => { if (history.state?.sheet) history.back(); else setOpen(null) }
+  useEffect(() => {
+    const onPop = () => setOpen(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeSheet() }
+    window.addEventListener("popstate", onPop)
+    window.addEventListener("keydown", onKey)
+    return () => { window.removeEventListener("popstate", onPop); window.removeEventListener("keydown", onKey) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const catBy = useMemo(() => Object.fromEntries(cats.map(c => [c.key, c])), [cats])
   const sorted = (list: Ev[]) => [...list].sort((a, b) => mins(a.start_time) - mins(b.start_time))
 
   const card = (e: Ev) => {
     const c = catBy[e.category]
     return (
-      <button key={e.id} onClick={() => setOpen(e)}
+      <button key={e.id} onClick={() => openSheet(e)}
         className="relative w-full rounded-md border border-line bg-void-2 p-3.5 pl-4 text-left transition-transform duration-150 active:scale-[.985]">
         <span className="absolute bottom-2.5 left-0 top-2.5 w-[3px] rounded-sm" style={{ background: c?.color }} />
         <span className="flex items-baseline justify-between gap-2">
@@ -133,6 +147,9 @@ export default function App({ events, cats, flags, glossary, copy }: {
             )}
           </button>
         ))}
+        <a href="/admin" className="mt-auto hidden px-3 py-2 font-pixel text-[10px] uppercase tracking-wide text-ink-faint hover:text-ink-muted md:block">
+          Organizer sign-in
+        </a>
       </nav>
 
       <main className="min-h-dvh px-4 pb-[calc(104px+env(safe-area-inset-bottom))] md:px-9 md:pb-16">
@@ -160,7 +177,7 @@ export default function App({ events, cats, flags, glossary, copy }: {
             {DAYS.map(d => group(`${d.w} ${d.n}`, matches.filter(e => e.day === d.d)))}
             {!matches.length && empty("Nothing matches. Try a host, a venue, or a category.")}
           </> : view === "grid" ? (
-            <WeekGrid events={weekAll} cats={cats} onOpen={e => setOpen(e)} />
+            <WeekGrid events={weekAll} cats={cats} onOpen={e => openSheet(e)} />
           ) : <>
           <div className="sticky top-0 z-20 -mx-4 flex gap-2 overflow-x-auto bg-gradient-to-b from-void from-80% px-4 py-2.5 md:-mx-9 md:px-9 [scrollbar-width:none]">
             {DAYS.map((d, i) => {
@@ -202,14 +219,19 @@ export default function App({ events, cats, flags, glossary, copy }: {
               ))}
             </div>
           </section>
+          <a href="/admin" className="mt-8 block text-center font-pixel text-[11px] uppercase tracking-wide text-ink-faint md:hidden">
+            Organizer? Sign in →
+          </a>
         </>}
       </main>
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40 bg-[rgba(5,5,12,.6)] backdrop-blur-sm" onClick={() => setOpen(null)} />
+          <div className="fixed inset-0 z-40 bg-[rgba(5,5,12,.6)] backdrop-blur-sm" onClick={closeSheet} />
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[86dvh] w-full max-w-md overflow-y-auto rounded-t-xl border border-b-0 border-line bg-void-2 p-5 pb-8 md:bottom-auto md:top-1/2 md:max-w-lg md:-translate-y-1/2 md:rounded-xl md:border-b" role="dialog" aria-modal="true">
             <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-strong md:hidden" />
+            <button onClick={closeSheet} aria-label="Close"
+              className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-md text-ink-faint hover:text-ink">✕</button>
             <p className="font-pixel text-[11.5px] uppercase tracking-[0.12em]" style={{ color: catBy[open.category]?.color }}>{catBy[open.category]?.name}</p>
             <h2 className="mt-1.5 font-headline text-2xl font-bold leading-tight tracking-tight">{open.title}</h2>
             <p className="mt-1 font-pixel text-xs uppercase tracking-wide text-ink-faint">Hosted by {open.host_org}</p>

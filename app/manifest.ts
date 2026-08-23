@@ -6,6 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "STW",
     description: "Every Sac Tech Week 2026 event in one place.",
     start_url: "/",
+    scope: "/",
+    id: "/",
     display: "standalone",
     background_color: "#0B0B14",
     theme_color: "#0B0B14",

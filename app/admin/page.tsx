@@ -79,6 +79,16 @@ export default function Admin() {
       : error.message) : setSent(true)
   }
 
+  const openEdit = (e: Ev) => { setErr(""); setEdit(e); history.pushState({ edit: 1 }, "") }
+  const closeEdit = useCallback(() => { if (history.state?.edit) history.back(); else setEdit(null) }, [])
+  useEffect(() => {
+    const onPop = () => setEdit(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeEdit() }
+    window.addEventListener("popstate", onPop)
+    window.addEventListener("keydown", onKey)
+    return () => { window.removeEventListener("popstate", onPop); window.removeEventListener("keydown", onKey) }
+  }, [closeEdit])
+
   const save = async (patch: Partial<Ev>) => {
     if (!edit) return
     setErr("")
@@ -89,7 +99,7 @@ export default function Admin() {
         : error.message)
       return
     }
-    setEdit(null)
+    closeEdit()
     setNotice("Saved.")
     setTimeout(() => setNotice(""), 2500)
     load()
@@ -151,7 +161,7 @@ export default function Admin() {
   )
 
   const row = (e: Ev) => (
-    <button key={e.id} onClick={() => { setErr(""); setEdit(e) }}
+    <button key={e.id} onClick={() => openEdit(e)}
       className="relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 border-b border-line px-4 py-3.5 pl-5 text-left transition-colors last:border-b-0 hover:bg-void-3">
       <span className="absolute bottom-3 left-0 top-3 w-[3px] rounded-sm" style={{ background: catBy[e.category]?.color }} />
       <span className="truncate font-headline text-[15px] font-semibold tracking-tight">{e.title}</span>
@@ -172,7 +182,8 @@ export default function Admin() {
     <main className="mx-auto min-h-dvh max-w-5xl px-5 pb-24 sm:px-8">
       <header className="flex flex-wrap items-end justify-between gap-3 pt-8">
         <div>
-          <p className="font-pixel text-xs uppercase tracking-[0.12em] text-ember">Admin console</p>
+          <a href="/" className="font-pixel text-[11px] uppercase tracking-wide text-ink-faint hover:text-lavender">← Attendee calendar</a>
+          <p className="mt-2 font-pixel text-xs uppercase tracking-[0.12em] text-ember">Admin console</p>
           <h1 className="mt-1 font-headline text-[34px] font-bold tracking-tight">Events_</h1>
         </div>
         <button onClick={() => supabase.auth.signOut()} className="rounded-md border border-line px-3 py-1.5 text-xs text-ink-muted hover:text-ink">
@@ -209,7 +220,7 @@ export default function Admin() {
       </div>
 
       {seg === "grid" ? (
-        <WeekGrid events={live} cats={cats} showStatus onOpen={e => { setErr(""); setEdit(e as Ev) }} />
+        <WeekGrid events={live} cats={cats} showStatus onOpen={e => openEdit(e as Ev)} />
       ) : (
         DAYS.map(d => {
           const es = list.filter(e => e.day === d.d).sort((a, b) => mins(a.start_time) - mins(b.start_time))
@@ -233,10 +244,12 @@ export default function Admin() {
 
       {edit && (
         <>
-          <div className="fixed inset-0 z-40 bg-[rgba(5,5,12,.6)] backdrop-blur-sm" onClick={() => setEdit(null)} />
+          <div className="fixed inset-0 z-40 bg-[rgba(5,5,12,.6)] backdrop-blur-sm" onClick={closeEdit} />
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-xl border border-b-0 border-line bg-void-2 p-5 pb-8 sm:bottom-auto sm:top-1/2 sm:max-w-lg sm:-translate-y-1/2 sm:rounded-xl sm:border-b"
             role="dialog" aria-modal="true">
-            <h2 className="font-headline text-xl font-bold tracking-tight">{edit.title}</h2>
+            <button onClick={closeEdit} aria-label="Close"
+              className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-md text-ink-faint hover:text-ink">✕</button>
+            <h2 className="pr-8 font-headline text-xl font-bold tracking-tight">{edit.title}</h2>
             <p className="mt-0.5 text-xs text-ink-faint">{edit.host_org} · {edit.host_email ?? "no email"} · {clicks[edit.id] ?? 0} clicks</p>
             <form className="mt-4 grid gap-3" onSubmit={ev => {
               ev.preventDefault()
@@ -268,7 +281,7 @@ export default function Admin() {
               {err && <p className="rounded-md border border-bad/40 bg-bad/10 p-2.5 text-sm">{err}</p>}
               <div className="grid gap-2">
                 <button className="rounded-md bg-electric p-3 font-headline font-semibold text-white shadow-[0_0_24px_rgba(111,29,255,.45)] active:scale-[.975]">Save</button>
-                <button type="button" onClick={() => setEdit(null)} className="rounded-md border border-line bg-void-3 p-3 font-headline font-semibold active:scale-[.975]">Cancel</button>
+                <button type="button" onClick={closeEdit} className="rounded-md border border-line bg-void-3 p-3 font-headline font-semibold active:scale-[.975]">Cancel</button>
               </div>
             </form>
           </div>

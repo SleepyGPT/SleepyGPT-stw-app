@@ -1,0 +1,11 @@
+{
+  "name": "STW Admin",
+  "short_name": "STW Admin",
+  "description": "Sac Tech Week organizer console.",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "background_color": "#0B0B14",
+  "theme_color": "#0B0B14",
+  "icons": [{ "src": "/icon-admin.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
