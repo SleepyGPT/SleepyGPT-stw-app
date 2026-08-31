@@ -7,7 +7,7 @@ type Ev = {
   id: string; slug: string; title: string; description: string | null
   category: string; day: string; start_time: string | null; slot: string | null
   venue_name: string | null; is_free: boolean; newcomer: boolean
-  host_org: string | null
+  host_org: string | null; image_url: string | null
 }
 type Cat = { key: string; name: string; color: string }
 type Flags = { free: string; paid: string; newcomer: string; newcomer_on: boolean }
@@ -231,7 +231,11 @@ export default function App({ events, cats, flags, glossary, copy }: {
           <div className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[86dvh] w-full max-w-md overflow-y-auto rounded-t-xl border border-b-0 border-line bg-void-2 p-5 pb-8 md:bottom-auto md:top-1/2 md:max-w-lg md:-translate-y-1/2 md:rounded-xl md:border-b" role="dialog" aria-modal="true">
             <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-line-strong md:hidden" />
             <button onClick={closeSheet} aria-label="Close"
-              className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-md text-ink-faint hover:text-ink">✕</button>
+              className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-md bg-void-2/70 text-ink-faint hover:text-ink">✕</button>
+            {open.image_url && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={open.image_url} alt="" className="mb-4 aspect-[2/1] w-full rounded-md border border-line object-cover" />
+            )}
             <p className="font-pixel text-[11.5px] uppercase tracking-[0.12em]" style={{ color: catBy[open.category]?.color }}>{catBy[open.category]?.name}</p>
             <h2 className="mt-1.5 font-headline text-2xl font-bold leading-tight tracking-tight">{open.title}</h2>
             <p className="mt-1 font-pixel text-xs uppercase tracking-wide text-ink-faint">Hosted by {open.host_org}</p>
