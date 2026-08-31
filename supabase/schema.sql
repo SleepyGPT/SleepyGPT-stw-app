@@ -40,6 +40,7 @@ create table events (
   access_notes  text,
   is_virtual    boolean not null default false,
   luma_url      text,
+  image_url     text,          -- event cover pulled from the Luma page
   is_free       boolean not null default true,
   price         text,
   newcomer      boolean not null default false,
