@@ -7,10 +7,10 @@ type Ev = {
   id: string; slug: string; title: string; description: string | null
   category: string; day: string; start_time: string | null; slot: string | null
   venue_name: string | null; is_free: boolean; newcomer: boolean
-  host_org: string | null; image_url: string | null
+  host_org: string | null; image_url: string | null; luma_url: string | null
 }
 type Cat = { key: string; name: string; color: string }
-type Flags = { free: string; paid: string; newcomer: string; newcomer_on: boolean }
+type Flags = { free: string; paid: string; newcomer: string; newcomer_on: boolean; pending?: string }
 type Gloss = { term: string; definition: string }
 
 const DAYS = [
@@ -87,6 +87,9 @@ export default function App({ events, cats, flags, glossary, copy }: {
           </span>
           {e.newcomer && flags.newcomer_on && (
             <span className="rounded-sm border border-lavender/40 px-1.5 py-0.5 font-pixel text-[10px] uppercase tracking-wide text-lavender">{flags.newcomer}</span>
+          )}
+          {!e.luma_url && (
+            <span className="rounded-sm border border-warn/50 px-1.5 py-0.5 font-pixel text-[10px] uppercase tracking-wide text-warn">{flags.pending ?? "RSVP soon"}</span>
           )}
         </span>
         <span role="button" aria-label={`Star ${e.title}`} onClick={ev => { ev.stopPropagation(); toggleStar(e.id) }}
@@ -252,10 +255,17 @@ export default function App({ events, cats, flags, glossary, copy }: {
               ))}
             </div>
             <div className="mt-4 grid gap-2">
-              <a href={`/go/${open.slug}?src=detail`}
-                className="flex items-center justify-center rounded-md bg-electric p-3.5 font-headline font-semibold text-white shadow-[0_0_24px_rgba(111,29,255,.45)] transition-transform active:scale-[.975]">
-                RSVP on Luma ↗
-              </a>
+              {open.luma_url ? (
+                <a href={`/go/${open.slug}?src=detail`}
+                  className="flex items-center justify-center rounded-md bg-electric p-3.5 font-headline font-semibold text-white shadow-[0_0_24px_rgba(111,29,255,.45)] transition-transform active:scale-[.975]">
+                  RSVP on Luma ↗
+                </a>
+              ) : (
+                <div className="rounded-md border border-dashed border-warn/50 bg-warn/5 p-3.5 text-center">
+                  <span className="block font-headline font-semibold text-warn">Registration opens soon</span>
+                  <span className="mt-0.5 block text-xs text-ink-muted">The host is setting up their Luma page. Star it so it&apos;s in My week when it opens.</span>
+                </div>
+              )}
               <button onClick={() => toggleStar(open.id)}
                 className="rounded-md border border-line bg-void-3 p-3.5 font-headline font-semibold transition-transform active:scale-[.975]">
                 {stars.has(open.id) ? "★ Starred · in My Week" : "☆ Star this event"}

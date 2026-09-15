@@ -100,7 +100,8 @@ export default function Admin() {
       return
     }
     closeEdit()
-    setNotice("Saved.")
+    setNotice(edit.status === "link_pending" && patch.status === "published"
+      ? `Link added. ${edit.title} is now published.` : "Saved.")
     setTimeout(() => setNotice(""), 2500)
     load()
   }
@@ -169,8 +170,9 @@ export default function Admin() {
         <span className={`rounded-sm border px-2 py-0.5 font-pixel text-[10px] uppercase ${
           e.status === "published" ? "border-ok/40 text-ok"
           : e.status === "in_review" ? "border-warn/50 text-warn"
+          : e.status === "link_pending" ? "border-lavender/40 text-lavender"
           : "border-line text-ink-faint"}`}>{e.status.replace("_", " ")}</span>
-        {!e.luma_url && <span className="rounded-sm border border-bad/40 px-2 py-0.5 font-pixel text-[10px] uppercase text-bad">No link</span>}
+        {!e.luma_url && e.status !== "link_pending" && <span className="rounded-sm border border-bad/40 px-2 py-0.5 font-pixel text-[10px] uppercase text-bad">No link</span>}
       </span>
       <span className="truncate text-[12.5px] text-ink-muted">
         {e.start_time ?? "time TBD"} · <span style={{ color: catBy[e.category]?.color }}>{catBy[e.category]?.name}</span> · {e.host_org ?? "no host"} · <b className="text-ink">{clicks[e.id] ?? 0}</b> clicks
@@ -235,6 +237,19 @@ export default function Admin() {
           )
         })
       )}
+      {seg !== "grid" && (() => {
+        // Submissions dated outside the week would otherwise vanish from every group.
+        const off = list.filter(e => !DAYS.some(d => d.d === e.day))
+        if (!off.length) return null
+        return (
+          <section className="mt-6">
+            <div className="mb-2 flex items-center gap-2.5 font-pixel text-xs uppercase tracking-[0.12em] text-warn">
+              Needs a date · outside Oct 19-24 · {off.length}<span className="h-px flex-1 bg-line" />
+            </div>
+            <div className="overflow-hidden rounded-md border border-line bg-void-2">{off.map(row)}</div>
+          </section>
+        )
+      })()}
       {seg !== "grid" && !list.length && (
         <div className="mt-8 rounded-md border border-dashed border-line p-8 text-center text-sm text-ink-faint">
           <span className="mb-1 block font-pixel text-[13px] text-lavender">CLEAR_</span>
@@ -254,10 +269,14 @@ export default function Admin() {
             <form className="mt-4 grid gap-3" onSubmit={ev => {
               ev.preventDefault()
               const f = new FormData(ev.currentTarget)
+              const luma = String(f.get("luma")).trim() || null
+              let status = String(f.get("status"))
+              // Pasting a link into a link-pending event is the whole job: publish it.
+              if (status === "link_pending" && luma) status = "published"
               save({
                 title: String(f.get("title")),
-                status: String(f.get("status")),
-                luma_url: String(f.get("luma")).trim() || null,
+                status,
+                luma_url: luma,
                 start_time: String(f.get("time")).trim() || null,
               })
             }}>
@@ -268,7 +287,7 @@ export default function Admin() {
                 <label className="grid gap-1 text-xs font-semibold text-ink-muted">Status
                   <select name="status" defaultValue={edit.status} className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember">
                     <option value="draft">draft</option><option value="in_review">in_review</option>
-                    <option value="published">published</option><option value="declined">declined</option>
+                    <option value="link_pending">link_pending</option><option value="published">published</option><option value="declined">declined</option>
                   </select>
                 </label>
                 <label className="grid gap-1 text-xs font-semibold text-ink-muted">Start time

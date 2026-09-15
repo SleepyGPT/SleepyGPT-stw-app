@@ -47,7 +47,7 @@ export default function WeekGrid<T extends GridEv>({ events, cats, onOpen, showS
                       className={`relative rounded-md border border-line bg-void-2 py-1.5 pl-3 pr-1.5 text-left transition-transform active:scale-[.97] ${dim ? "opacity-55" : ""}`}>
                       <span className="absolute bottom-1.5 left-0 top-1.5 w-[3px] rounded-sm" style={{ background: c?.color }} />
                       <span className="block font-pixel text-[9.5px] text-ink-faint">
-                        {e.start_time}{dim && <em className="ml-1 not-italic text-warn">· {e.status}</em>}
+                        {e.start_time}{dim && <em className="ml-1 not-italic text-warn">· {e.status?.replace("_", " ")}</em>}
                       </span>
                       <span className="mt-0.5 line-clamp-2 block text-[12px] font-semibold leading-snug">{e.title}</span>
                     </button>

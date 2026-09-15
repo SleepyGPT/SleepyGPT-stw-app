@@ -28,7 +28,7 @@ create table events (
   id            uuid primary key default gen_random_uuid(),
   slug          text unique not null,
   status        text not null default 'in_review'
-                check (status in ('draft','in_review','published','declined')),
+                check (status in ('draft','in_review','link_pending','published','declined')),
   title         text not null,
   description   text,
   category      text not null references categories(key),
@@ -108,8 +108,9 @@ create policy "glossary is public"   on glossary     for select using (true);
 create policy "glossary admin write" on glossary     for all    using (is_admin());
 
 -- events: the world reads published, hosts submit, admins do everything
-create policy "published events are public" on events for select
-  using (status = 'published' or is_admin());
+-- link_pending: listed publicly, no RSVP button until the Luma page exists
+create policy "listed events are public" on events for select
+  using (status in ('published','link_pending') or is_admin());
 create policy "anyone can submit for review" on events for insert
   with check (status = 'in_review');
 create policy "admins update events" on events for update using (is_admin());
@@ -136,7 +137,7 @@ insert into categories (key,name,color,sort) values
   ('show','Showcase','#FBBF24',5);
 
 insert into app_settings (key,value) values
-  ('flags', '{"free":"Free","paid":"Ticketed","newcomer":"New to tech","newcomer_on":true}'),
+  ('flags', '{"free":"Free","paid":"Ticketed","newcomer":"New to tech","newcomer_on":true,"pending":"RSVP soon"}'),
   ('copy',  '{"start_intro":"You don''t need a job in tech to be here. These picks assume nothing.","save_title":"Save this week","save_body":"Drop your email and we''ll send your list, plus a link that survives a cleared browser."}');
 
 insert into glossary (term,definition,sort) values
