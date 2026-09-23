@@ -40,6 +40,7 @@ export default function Admin() {
   const [notice, setNotice] = useState("")
   const [seg, setSeg] = useState<"all" | "queue" | "nolink" | "grid">("all")
   const [q, setQ] = useState("")
+  const [isNew, setIsNew] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true) })
@@ -80,9 +81,19 @@ export default function Admin() {
   }
 
   const openEdit = (e: Ev) => { setErr(""); setEdit(e); history.pushState({ edit: 1 }, "") }
-  const closeEdit = useCallback(() => { if (history.state?.edit) history.back(); else setEdit(null) }, [])
+  const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "event"
+  const openCreate = () => {
+    setErr("")
+    setIsNew(true)
+    setEdit({
+      id: "", slug: "", title: "", status: "in_review", category: cats[0]?.key ?? "",
+      day: DAYS[0].d, start_time: null, luma_url: null, host_org: null, host_email: null,
+    })
+    history.pushState({ edit: 1 }, "")
+  }
+  const closeEdit = useCallback(() => { if (history.state?.edit) history.back(); else { setEdit(null); setIsNew(false) } }, [])
   useEffect(() => {
-    const onPop = () => setEdit(null)
+    const onPop = () => { setEdit(null); setIsNew(false) }
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeEdit() }
     window.addEventListener("popstate", onPop)
     window.addEventListener("keydown", onKey)
@@ -92,6 +103,21 @@ export default function Admin() {
   const save = async (patch: Partial<Ev>) => {
     if (!edit) return
     setErr("")
+    if (isNew) {
+      const slug = `${slugify(patch.title ?? "")}-${Math.random().toString(36).slice(2, 7)}`
+      const { error } = await supabase.from("events").insert({ ...patch, slug })
+      if (error) {
+        setErr(error.message.includes("published_needs_luma")
+          ? "Blocked: a published event needs a Luma link. Paste the link or keep it a draft."
+          : error.message)
+        return
+      }
+      closeEdit()
+      setNotice("Event added.")
+      setTimeout(() => setNotice(""), 2500)
+      load()
+      return
+    }
     const { error } = await supabase.from("events").update(patch).eq("id", edit.id)
     if (error) {
       setErr(error.message.includes("published_needs_luma")
@@ -217,8 +243,12 @@ export default function Admin() {
             {label}
           </button>
         ))}
+        <button onClick={openCreate}
+          className="ml-auto rounded-full border border-electric px-4 py-2 text-[13px] text-electric transition-colors hover:bg-electric/10 active:scale-95">
+          + New event
+        </button>
         <input value={q} onChange={e => setQ(e.target.value)} type="search" placeholder="Search"
-          className="ml-auto w-40 rounded-md border border-line bg-void-2 px-3.5 py-2 text-sm outline-none placeholder:text-ink-faint focus:border-ember sm:w-56" />
+          className="w-40 rounded-md border border-line bg-void-2 px-3.5 py-2 text-sm outline-none placeholder:text-ink-faint focus:border-ember sm:w-56" />
       </div>
 
       {seg === "grid" ? (
@@ -264,8 +294,10 @@ export default function Admin() {
             role="dialog" aria-modal="true">
             <button onClick={closeEdit} aria-label="Close"
               className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-md text-ink-faint hover:text-ink">✕</button>
-            <h2 className="pr-8 font-headline text-xl font-bold tracking-tight">{edit.title}</h2>
-            <p className="mt-0.5 text-xs text-ink-faint">{edit.host_org} · {edit.host_email ?? "no email"} · {clicks[edit.id] ?? 0} clicks</p>
+            <h2 className="pr-8 font-headline text-xl font-bold tracking-tight">{isNew ? "New event" : edit.title}</h2>
+            {!isNew && (
+              <p className="mt-0.5 text-xs text-ink-faint">{edit.host_org} · {edit.host_email ?? "no email"} · {clicks[edit.id] ?? 0} clicks</p>
+            )}
             <form className="mt-4 grid gap-3" onSubmit={ev => {
               ev.preventDefault()
               const f = new FormData(ev.currentTarget)
@@ -276,13 +308,27 @@ export default function Admin() {
               save({
                 title: String(f.get("title")),
                 status,
+                category: String(f.get("category")),
+                day: String(f.get("day")),
                 luma_url: luma,
                 start_time: String(f.get("time")).trim() || null,
+                host_org: String(f.get("host_org")).trim() || null,
+                host_email: String(f.get("host_email")).trim() || null,
               })
             }}>
               <label className="grid gap-1 text-xs font-semibold text-ink-muted">Title
-                <input name="title" defaultValue={edit.title} className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember" />
+                <input name="title" required defaultValue={edit.title} className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember" />
               </label>
+              <div className="grid grid-cols-2 gap-2.5">
+                <label className="grid gap-1 text-xs font-semibold text-ink-muted">Category
+                  <select name="category" defaultValue={edit.category} className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember">
+                    {cats.map(c => <option key={c.key} value={c.key}>{c.name}</option>)}
+                  </select>
+                </label>
+                <label className="grid gap-1 text-xs font-semibold text-ink-muted">Day
+                  <input type="date" name="day" required defaultValue={edit.day} className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember" />
+                </label>
+              </div>
               <div className="grid grid-cols-2 gap-2.5">
                 <label className="grid gap-1 text-xs font-semibold text-ink-muted">Status
                   <select name="status" defaultValue={edit.status} className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember">
@@ -294,12 +340,20 @@ export default function Admin() {
                   <input name="time" defaultValue={edit.start_time ?? ""} placeholder="6:00 PM" className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember" />
                 </label>
               </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <label className="grid gap-1 text-xs font-semibold text-ink-muted">Host org
+                  <input name="host_org" defaultValue={edit.host_org ?? ""} className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember" />
+                </label>
+                <label className="grid gap-1 text-xs font-semibold text-ink-muted">Host email
+                  <input type="email" name="host_email" defaultValue={edit.host_email ?? ""} className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember" />
+                </label>
+              </div>
               <label className="grid gap-1 text-xs font-semibold text-ink-muted">Luma link
                 <input name="luma" defaultValue={edit.luma_url ?? ""} placeholder="https://lu.ma/..." className="rounded-md border border-line bg-void px-3 py-2.5 text-sm font-normal text-ink outline-none focus:border-ember" />
               </label>
               {err && <p className="rounded-md border border-bad/40 bg-bad/10 p-2.5 text-sm">{err}</p>}
               <div className="grid gap-2">
-                <button className="rounded-md bg-electric p-3 font-headline font-semibold text-white shadow-[0_0_24px_rgba(111,29,255,.45)] active:scale-[.975]">Save</button>
+                <button className="rounded-md bg-electric p-3 font-headline font-semibold text-white shadow-[0_0_24px_rgba(111,29,255,.45)] active:scale-[.975]">{isNew ? "Add event" : "Save"}</button>
                 <button type="button" onClick={closeEdit} className="rounded-md border border-line bg-void-3 p-3 font-headline font-semibold active:scale-[.975]">Cancel</button>
               </div>
             </form>
