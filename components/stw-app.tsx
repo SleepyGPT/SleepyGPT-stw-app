@@ -5,7 +5,7 @@ import WeekGrid from "@/components/week-grid"
 
 type Ev = {
   id: string; slug: string; title: string; description: string | null
-  category: string; day: string; start_time: string | null; slot: string | null
+  category: string; day: string; start_time: string | null
   venue_name: string | null; is_free: boolean; newcomer: boolean
   host_org: string | null; image_url: string | null; luma_url: string | null
 }
@@ -18,11 +18,21 @@ const DAYS = [
   { d: "2026-10-21", w: "Wed", n: 21 }, { d: "2026-10-22", w: "Thu", n: 22 },
   { d: "2026-10-23", w: "Fri", n: 23 }, { d: "2026-10-24", w: "Sat", n: 24 },
 ]
-const SLOTS = ["Morning", "Afternoon", "Evening"]
+const SLOTS = ["Morning", "Afternoon", "Evening", "Time TBD"]
 const mins = (t: string | null) => {
   const m = t?.match(/(\d+):(\d+)\s*(AM|PM)/i)
   if (!m) return 0
   return ((+m[1] % 12) + (m[3].toUpperCase() === "PM" ? 12 : 0)) * 60 + +m[2]
+}
+// Derived from start_time rather than the (rarely set) slot column, so an
+// event never silently drops out of every group just because no one picked
+// a slot for it.
+const slotOf = (t: string | null) => {
+  if (!t) return "Time TBD"
+  const m = mins(t)
+  if (m < 12 * 60) return "Morning"
+  if (m < 17 * 60) return "Afternoon"
+  return "Evening"
 }
 
 const TABS = [
@@ -195,7 +205,7 @@ export default function App({ events, cats, flags, glossary, copy }: {
               )
             })}
           </div>
-          {SLOTS.map(s => group(s, weekList.filter(e => e.slot === s)))}
+          {SLOTS.map(s => group(s, weekList.filter(e => slotOf(e.start_time) === s)))}
           {!weekList.length && empty("Nothing on this day yet.")}
           </>}
         </>}
